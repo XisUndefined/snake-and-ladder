@@ -1,5 +1,4 @@
-import sys, pygame, random, os
-from spritesheet import Spritesheet
+import sys, pygame, random, os, asyncio, json
 
 os.chdir(rf"{os.path.realpath(os.path.dirname(__file__))}")
 
@@ -15,6 +14,60 @@ window = pygame.display.set_mode((res_w, res_h))
 caption = pygame.display.set_caption("Snake & Ladder")
 pygame.display.set_icon(icon)
 
+class Spritesheet:
+  def __init__(self, filename):
+    self.filename = filename
+    self.sprite_sheet = pygame.image.load(filename).convert()
+    self.new_filename = self.filename.replace('png', 'json')
+    self.meta_data = self.new_filename.replace('images', 'json')
+    with open(self.meta_data) as f:
+        self.data = json.load(f)
+    f.close()
+
+  def get_sprite(self, x, y, w, h):
+    sprite = pygame.Surface((w, h))
+    sprite.set_colorkey((0,0,0))
+    sprite.blit(self.sprite_sheet,(0, 0),(x, y, w, h))
+    return sprite
+
+  def parse_sprite(self, name):
+    sprite = self.data['frames'][name]['frame']
+    x, y, w, h = sprite["x"], sprite["y"], sprite["w"], sprite["h"]
+    image = self.get_sprite(x, y, w, h)
+    return image
+
+class Player():
+  def __init__(self, image, overlapImage):
+    self.image = image
+    self.overlapImage = overlapImage
+
+  def draw(self, position):
+    self.position = position
+    self.rectImage = self.image.get_rect(center = self.position)
+    self.rectOverlap = self.overlapImage.get_rect(center = self.position)
+    if n == m:
+      window.blit(self.overlapImage, self.rectOverlap)
+    else:
+      window.blit(self.image, self.rectImage)
+
+class Button():
+  def __init__(self, text: str, x: int, y: int, font):
+    self.clicked = False
+    self.textSurf = font.render(text, True, '#FFFFFF')
+    self.textRect = self.textSurf.get_rect(center = (x, y))
+
+  def draw(self):
+    action = False
+    mousePos = pygame.mouse.get_pos()
+    if self.textRect.collidepoint(mousePos):
+      if pygame.mouse.get_pressed()[0] == 1 and self.clicked == False:
+        self.clicked = True
+        action = True
+    if pygame.mouse.get_pressed()[0] == 0:
+      self.clicked = False
+    window.blit(self.textSurf, self.textRect)
+    return action
+  
 def playMusic(filename: str, loop: int):
   pygame.mixer.music.load(filename)
   return pygame.mixer.music.play(loop)
@@ -55,38 +108,6 @@ turn = 2
 n, m, posChange, xn = 0, 0, 0, 0
 back = False
 
-class Player():
-  def __init__(self, image, overlapImage):
-    self.image = image
-    self.overlapImage = overlapImage
-
-  def draw(self, position):
-    self.position = position
-    self.rectImage = self.image.get_rect(center = self.position)
-    self.rectOverlap = self.overlapImage.get_rect(center = self.position)
-    if n == m:
-      window.blit(self.overlapImage, self.rectOverlap)
-    else:
-      window.blit(self.image, self.rectImage)
-
-class Button():
-  def __init__(self, text: str, x: int, y: int, font):
-    self.clicked = False
-    self.textSurf = font.render(text, True, '#FFFFFF')
-    self.textRect = self.textSurf.get_rect(center = (x, y))
-
-  def draw(self):
-    action = False
-    mousePos = pygame.mouse.get_pos()
-    if self.textRect.collidepoint(mousePos):
-      if pygame.mouse.get_pressed()[0] == 1 and self.clicked == False:
-        self.clicked = True
-        action = True
-    if pygame.mouse.get_pressed()[0] == 0:
-      self.clicked = False
-    window.blit(self.textSurf, self.textRect)
-    return action
-  
 singleButton = Button("Single Player", 683, 433, playerFont)
 multiButton = Button("Multiplayer", 683, 513, playerFont)
 diceButton = Button("Roll", 1165, 155, diceFont)
@@ -119,7 +140,7 @@ def choosePlayer():
     pygame.display.update()
     gameClock.tick(50)
 
-def menu():
+async def menu():
   pauseMusic("data/sounds/gotcha.wav")
   pauseMusic("data/sounds/Level Complete.wav")
   playMusic("data/sounds/Theme Song.wav", -1)
@@ -137,6 +158,8 @@ def menu():
     window.blit(menuMsg, menuRect)
     pygame.display.update()
     gameClock.tick(50)
+
+    await asyncio.sleep(0)
 
 def winner(filename: str, player):
   global turn, n, m, list_p
@@ -321,4 +344,4 @@ def gameloop2():
     gameClock.tick(50)
 
 if __name__ == "__main__":
-  menu()
+  asyncio.run(menu())
